@@ -98,10 +98,10 @@ Apache:
       Brute force the login with rockyou.txt (17380 attempts). Password is: thebeast
       Result:
         You get the 3rd encoded road poneglyph. Keep it.
-        You also get the following sentence: You succeed to run away and there is only one Road Poneglyph left to find to be able to reach Laugh Tale. Unfortunately, the location of this last Poneglyph is unknown.
+        You also get the following sentence: You succeed to run away and there is only one Road Poneglyph left to find to be able to reach Laugh Tale. Unfortunately, the location of this last Poneglyph is unspecified.
 
   4th Road Poneglyph:
-    As hinted by the last sentence the last poneglyph is at /unknown.
+    As hinted by the last sentence the last poneglyph is at /unspecified.
     It can also be found by enumeration with a classic wordlist.
 
   SSH creds:
@@ -121,7 +121,6 @@ SSH:
     You get a file named: gomugomunooo_king_kobraaa
     Using it you realise it is Python 3.6.9. You can use it to escalate privileges.
     Command: /usr/bin/gomugomunooo_king_kobraaa -c 'import os; os.execl("/bin/sh", "sh", "-p")'
-    (It can also be done with /usr/bin/python3.6m SUID)
     You can see in /home/teach there are 2 interesting files: luffy_vs_teach.txt and .password.txt
     The file luffy_vs_teach.txt contains the answer for the 2nd question: "Willpower"
     The file .password.txt contains: 7uffy_vs_T3@ch:Wh0_w1ll_b3_th3_k1ng?
@@ -135,7 +134,7 @@ SSH:
       However /usr/local/bin/less is a bash script:
         #!/bin/bash
         echo "Sorry, I can't tell you where is the One Piece"
-    /usr/local/bin/less permissions are 777 however the append only attribute is set:
+    /usr/local/bin/less permissions are 773 and the append only attribute is set:
       It can only be modified by appending data.
       Command: echo bash >> /usr/local/bin/less
     Command: sudo /usr/local/bin/less
