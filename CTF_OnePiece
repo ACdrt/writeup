@@ -145,5 +145,5 @@ SSH:
     Command: grep -iRl "One Piece" /
     It is located here: /usr/share/mysterious/on3_p1ec3.txt
     The file contains: One Piece: S3cr3ts_0f_tH3_W0rlD_&_0f_Th3_P@st$
-    The file on3_p1ec3.txt.txt contains the answer for the last question: "S3cr3ts_0f_tH3_W0rlD_&_0f_Th3_P@st$"
+    The file on3_p1ec3.txt contains the answer for the last question: "S3cr3ts_0f_tH3_W0rlD_&_0f_Th3_P@st$"
     
