@@ -33,7 +33,7 @@ Priv Esc Easy:
         Rabbit hole: sudo
             sudo -u user3 /usr/bin/ssh-keygen
         Intended path:
-            Cronjob: 
+            Cronjob:
                 cat /home/user2/may_the_force_be_with_you > /home/user3/hello.py
             Sudo rule: 
                 (user3) NOPASSWD: /home/user3/hello.py
