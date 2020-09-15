@@ -29,7 +29,7 @@ Scan:
     |_http-title: New World
 Thanks to the scan we can see that the anonymous FTP login is allowed.
 
-FTP:
+FTP: 
   We can see a file welcome.txt and a hidden directory .the_whale_tree
   Get the txt file and go the hidden directory.
   We can see 2 hidden files, .road_poneglyph.jpeg and .secret_room.txt
